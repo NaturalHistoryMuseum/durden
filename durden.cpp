@@ -2,17 +2,18 @@
 // Name        : durden.cpp
 // Author      : S.D.Rycroft
 // Version     : 1
-// Copyright   : GPLv3 Blah blah blah
+// Copyright   : GPLv3
 // Description : Image tiler for Google maps.
 //============================================================================
-#include <Magick++.h>
 #include <iostream>
+#include <Magick++.h>
+#include <string.h>
 #include <sys/stat.h>
 using namespace std;
 using namespace Magick;
-bool FileExists(string FileName){
+bool FileExists(char * FileName){
   FILE* fp = NULL;
-  fp = fopen( FileName.c_str(), "rb" );
+  fp = fopen( FileName, "rb" );
   if( fp != NULL ){
     fclose( fp );
     return true;
@@ -29,7 +30,6 @@ int main(int argc,char **argv)
   // Variables
   Image image;
   Image image_crop;
-  Image image_merge;
   char x_str[21];
   char y_str[21];
   char prev_x_str[21];
@@ -38,11 +38,10 @@ int main(int argc,char **argv)
   char prev_y_plus_1_str[21];
   char zoom_str[21];
   char prev_zoom_str[21];
-  const char *directory;
-  string pre_filename = argv[2];
-  string post_filename = ".jpg";
-  string directory_str;
-  string filename;
+  char dir_or_file_name[2048];
+  char out_dir[2048];
+  strcpy(out_dir, argv[2]);
+  const char * post_filename = ".jpg";
   int image_x;
   int image_y;
   int current_tile_size;
@@ -68,15 +67,15 @@ int main(int argc,char **argv)
     image_x = (int)image.columns();
     image_y = (int)image.rows();
     // Create the output directory.
-    directory = pre_filename.c_str();
-    mkdir(directory, 0755);
+    mkdir(out_dir, 0755);
     // Calculate the zoom levels, and create the directories for each one.
     int i = tile_size;
     while(i < (image_x * 2) || i < (image_y * 2)){
       sprintf(zoom_str, "%u", zoom_levels);
-      directory_str = pre_filename + "/" + zoom_str;
-      directory = directory_str.c_str();
-      mkdir(directory, 0755);
+      strcpy(dir_or_file_name, out_dir);
+      strcat(dir_or_file_name, "/");
+      strcat(dir_or_file_name, zoom_str);
+      mkdir(dir_or_file_name, 0755);
       zoom_levels ++;
       i = i * 2;
     }
@@ -89,9 +88,18 @@ int main(int argc,char **argv)
       sprintf(x_str, "%u", x/current_tile_size);
       for(int y=0;y<image_y;y+=current_tile_size){
         sprintf(y_str, "%u", y/current_tile_size);
+        // Effectively clone the image for cropping.
         image_crop = image;
         image_crop.crop(Geometry(current_tile_size,current_tile_size,x,y));
-        image_crop.write(pre_filename + "/" + zoom_str + "/" + x_str + "-" + y_str + post_filename);
+        strcpy(dir_or_file_name, out_dir);
+        strcat(dir_or_file_name, "/");
+        strcat(dir_or_file_name, zoom_str);
+        strcat(dir_or_file_name, "/");
+        strcat(dir_or_file_name, x_str);
+        strcat(dir_or_file_name, "-");
+        strcat(dir_or_file_name, y_str);
+        strcat(dir_or_file_name, post_filename);
+        image_crop.write(dir_or_file_name);
       }
     }
     // Next we do all the other zoom levels.
@@ -107,28 +115,68 @@ int main(int argc,char **argv)
           sprintf(y_str, "%u", y/current_tile_size);
           sprintf(prev_y_str, "%u", (y * 2)/current_tile_size);
           sprintf(prev_y_plus_1_str, "%u", ((y * 2)/current_tile_size)+1);
-          if(FileExists(pre_filename + "/" + prev_zoom_str + "/" + prev_x_str + "-" + prev_y_str + post_filename)){
-            image_crop.read(pre_filename + "/" + prev_zoom_str + "/" + prev_x_str + "-" + prev_y_str + post_filename);
+	  strcpy(dir_or_file_name, out_dir);
+	  strcat(dir_or_file_name, "/");
+	  strcat(dir_or_file_name, prev_zoom_str);
+	  strcat(dir_or_file_name, "/");
+	  strcat(dir_or_file_name, prev_x_str);
+	  strcat(dir_or_file_name, "-");
+	  strcat(dir_or_file_name, prev_y_str);
+	  strcat(dir_or_file_name, post_filename);
+          if(FileExists(dir_or_file_name)){
+            image_crop.read(dir_or_file_name);
             // Increase the image size to add the other thumbnails.
             image_crop.extent(Geometry(tile_size*2, tile_size*2, 0, 0));
             // Add NE.
-            if(FileExists(pre_filename + "/" + prev_zoom_str + "/" + prev_x_plus_1_str + "-" + prev_y_str + post_filename)){
-              image_merge.read(pre_filename + "/" + prev_zoom_str + "/" + prev_x_plus_1_str + "-" + prev_y_str + post_filename);
-              image_crop.composite(image_merge, tile_size, 0);
+	    strcpy(dir_or_file_name, out_dir);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, prev_zoom_str);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, prev_x_plus_1_str);
+	    strcat(dir_or_file_name, "-");
+	    strcat(dir_or_file_name, prev_y_str);
+	    strcat(dir_or_file_name, post_filename);
+            if(FileExists(dir_or_file_name)){
+              image.read(dir_or_file_name);
+              image_crop.composite(image, tile_size, 0);
             }
             // Add SE.
-            if(FileExists(pre_filename + "/" + prev_zoom_str + "/" + prev_x_plus_1_str + "-" + prev_y_plus_1_str + post_filename)){
-              image_merge.read(pre_filename + "/" + prev_zoom_str + "/" + prev_x_plus_1_str + "-" + prev_y_plus_1_str + post_filename);
-              image_crop.composite(image_merge, tile_size, tile_size);
+	    strcpy(dir_or_file_name, out_dir);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, prev_zoom_str);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, prev_x_plus_1_str);
+	    strcat(dir_or_file_name, "-");
+	    strcat(dir_or_file_name, prev_y_plus_1_str);
+	    strcat(dir_or_file_name, post_filename);
+            if(FileExists(dir_or_file_name)){
+              image.read(dir_or_file_name);
+              image_crop.composite(image, tile_size, tile_size);
             }
             // Add SW.
-            if(FileExists(pre_filename + "/" + prev_zoom_str + "/" + prev_x_str + "-" + prev_y_plus_1_str + post_filename)){
-              image_merge.read(pre_filename + "/" + prev_zoom_str + "/" + prev_x_str + "-" + prev_y_plus_1_str + post_filename);
-              image_crop.composite(image_merge, 0, tile_size);
+	    strcpy(dir_or_file_name, out_dir);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, prev_zoom_str);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, prev_x_str);
+	    strcat(dir_or_file_name, "-");
+	    strcat(dir_or_file_name, prev_y_plus_1_str);
+	    strcat(dir_or_file_name, post_filename);
+            if(FileExists(dir_or_file_name)){
+              image.read(dir_or_file_name);
+              image_crop.composite(image, 0, tile_size);
             }
             // Resize
             image_crop.scale(Geometry(tile_size, tile_size, 0, 0));
-            image_crop.write(pre_filename + "/" + zoom_str + "/" + x_str + "-" + y_str + post_filename);
+	    strcpy(dir_or_file_name, out_dir);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, zoom_str);
+	    strcat(dir_or_file_name, "/");
+	    strcat(dir_or_file_name, x_str);
+	    strcat(dir_or_file_name, "-");
+	    strcat(dir_or_file_name, y_str);
+	    strcat(dir_or_file_name, post_filename);
+            image_crop.write(dir_or_file_name);
           }
         }
       }
