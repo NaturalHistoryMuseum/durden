@@ -54,9 +54,6 @@ int main(int argc,char **argv)
     tile_size = 256;
   }
   current_tile_size = tile_size;
-  // Construct the image object. Seperating image construction from the
-  // the read operation ensures that a failure to read the image file
-  // doesn't render the image object useless.
   try {
     // Get the dimensions of the original image.
     if(!FileExists(argv[1])){
