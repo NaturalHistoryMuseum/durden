@@ -1,2 +1,2 @@
 #!/bin/bash
-g++ `Magick++-config --cxxflags --cppflags` `Magick++-config --ldflags --libs` -o durden durden.cpp
+g++ `Magick++-config --cxxflags --cppflags` -o durden durden.cpp `Magick++-config --ldflags --libs`
